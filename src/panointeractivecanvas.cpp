@@ -300,7 +300,7 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
 
 
   if(m_zoomindown)
-    increment.incrementFov(0.03*m_position.getFov());
+    increment.incrementFov(-0.03*m_position.getFov());
 
   if(m_zoomoutdown)
     increment.incrementFov(0.03*m_position.getFov());
