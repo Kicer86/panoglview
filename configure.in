@@ -1,0 +1,45 @@
+AC_INIT(AUTHORS)
+AC_CANONICAL_SYSTEM
+AM_INIT_AUTOMAKE(panoglview,0.2)
+AC_PROG_CXX
+
+WX_VERSION=2.4
+
+case "$host" in
+*-*-cygwin* | *-*-mingw*)
+PANOGLCXXFLAGS="`wxmsw-2.4-i586-mingw32msvc-config --cxxflags`"
+PANOGLLDADD="`wxmsw-2.4-i586-mingw32msvc-config --libs` `wxmsw-2.4-i586-mingw32msvc-config --gl-libs`"
+PLUGIN_CXXFLAGS=""
+PLUGIN_LDFLAGS=""
+WINBUILD="1"
+;;
+*linux*)
+PANOGLCXXFLAGS="`wxgtkd-2.4-config --cxxflags`"
+PANOGLLDADD="`wxgtkd-2.4-config --libs` `wxgtkd-2.4-config --gl-libs`"
+PLUGIN_CXXFLAGS="$PLUGIN_CXXFLAGS `tuvista-config --cxxflags`"
+PLUGIN_LDFLAGS="$PLUGIN_LDFLAGS `tuvista-config --libs`"
+WINBUILD="0"
+;;
+esac
+
+dnl Depending on whether installing the file in a system location or not
+dnl the corresponding plugin-directory is chosen
+if test "$INSTALL_FLAG" == 1; then
+	PLUGIN_DIR="`tuvista-config --plugindir`"
+	LOCALE_DIR="`tuvista-config --localedir`"
+else
+	PLUGIN_DIR="`tuvista-config --noinst-plugindir`"
+	LOCALE_DIR="`tuvista-config --noinst-localedir`"
+fi
+
+AM_CONDITIONAL(WIN32_BUILD, test x$WINBUILD = "x1")
+
+AC_SUBST(PANOGLCXXFLAGS)
+AC_SUBST(PANOGLLDADD)
+AC_SUBST(PLUGIN_LDFLAGS)
+AC_SUBST(PLUGIN_CXXFLAGS)
+AC_SUBST(PLUGIN_DIR)
+
+AM_PROG_LIBTOOL
+
+AC_OUTPUT(Makefile src/Makefile)
