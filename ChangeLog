@@ -1,3 +1,21 @@
+2005-05-25 10:48  dwilkins42
+
+	* .cvsignore, configure.in, src/.cvsignore, src/Makefile.am: Update
+	  build system. Update .cvsignore
+
+2005-05-25 10:46  dwilkins42
+
+	* src/: panoapp.cpp, panocanvas.cpp, panoframe.cpp: Initial unicode
+	  support
+
+2005-05-25 08:44  dwilkins42
+
+	* .cvsignore, bootstrap: Add bootstrap. Update .cvsignore
+
+2005-05-25 08:39  dwilkins42
+
+	* COPYING, ChangeLog, src/Makefile.am: Use CXXFLAGS correctly
+
 2005-05-25 08:37  dwilkins42
 
 	* Makefile.am, configure.in: Build autoconfig files in subdir. Use

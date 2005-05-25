@@ -1,9 +1,43 @@
-AC_INIT(AUTHORS)
+AC_INIT([panoglview], [0.2])
 AC_CONFIG_AUX_DIR(config)
 AC_CANONICAL_SYSTEM
-AM_INIT_AUTOMAKE(panoglview,0.2)
+AM_INIT_AUTOMAKE([no-define dist-bzip2 dist-zip])
 AC_PROG_CXX
 
+AC_ARG_ENABLE(plugin,
+              AC_HELP_STRING([--enable-plugin],
+							 [enable the plugin for tuvista (default=no).])
+			  ,, enable_plugin=no)
+
+AM_CONDITIONAL(USE_PLUGIN, test "x$enable_plugin" = 'xyes')
+
+dnl Search for tuvista
+
+if test "x$enable_plugin" = "xyes"; then
+  AC_PATH_PROG(HAVE_TUVISTA, tuvista-config)
+  if test -z "$HAVE_TUVISTA" && test "x$enable_plugin" = "xyes"; then
+	AC_MSG_ERROR([** Coudn't find tuvista-config. You will need it to build the tuvista plugin])
+  else
+	PLUGIN_CXXFLAGS="$PLUGIN_CXXFLAGS `$HAVE_TUVISTA --cxxflags`"
+	PLUGIN_LDFLAGS="$PLUGIN_LDFLAGS `$HAVE_TUVISTA --libs`"
+	dnl Depending on whether installing the file in a system location or not
+	dnl the corresponding plugin-directory is chosen
+  	if test "$INSTALL_FLAG" == 1; then
+	  PLUGIN_DIR="`$HAVE_TUVISTA --plugindir`"
+	  LOCALE_DIR="`$HAVE_TUVISTA --localedir`"
+	else
+	  PLUGIN_DIR="`$HAVE_TUVISTA --noinst-plugindir`"
+	  LOCALE_DIR="`$HAVE_TUVISTA --noinst-localedir`"
+fi
+
+  fi
+else
+  PLUGIN_CXXFLAGS=""
+  PLUGIN_LDFLAGS=""
+  PLUGIN_DIR=""
+  LOCALE_DIR=""
+fi
+  						 
 AC_ARG_WITH([unicode],
       	    AC_HELP_STRING([--with-unicode=yes/no],
 			[set to 'yes' if you are using unicode wxWidgets library. (default=no)]),
@@ -36,26 +70,12 @@ fi
 															
 case "$host" in
 *-*-cygwin* | *-*-mingw*)
-PLUGIN_CXXFLAGS=""
-PLUGIN_LDFLAGS=""
 WINBUILD="1"
 ;;
 *linux*)
-PLUGIN_CXXFLAGS="$PLUGIN_CXXFLAGS `tuvista-config --cxxflags`"
-PLUGIN_LDFLAGS="$PLUGIN_LDFLAGS `tuvista-config --libs`"
 WINBUILD="0"
 ;;
 esac
-
-dnl Depending on whether installing the file in a system location or not
-dnl the corresponding plugin-directory is chosen
-if test "$INSTALL_FLAG" == 1; then
-	PLUGIN_DIR="`tuvista-config --plugindir`"
-	LOCALE_DIR="`tuvista-config --localedir`"
-else
-	PLUGIN_DIR="`tuvista-config --noinst-plugindir`"
-	LOCALE_DIR="`tuvista-config --noinst-localedir`"
-fi
 
 AM_CONDITIONAL(WIN32_BUILD, test x$WINBUILD = "x1")
 
