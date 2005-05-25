@@ -2,7 +2,7 @@ bin_PROGRAMS = panoglview
 
 pkglibdir = $(PLUGIN_DIR)
 
-CXXFLAGS = $(AM_CXXFLAGS) $(PANOGLCXXFLAGS) $(PLUGIN_CXXFLAGS) 
+AM_CXXFLAGS = $(PANOGLCXXFLAGS) $(PLUGIN_CXXFLAGS) 
 
 panoglview_SOURCES = panoapp.cpp panoframe.cpp panointeractivecanvas.cpp panocanvas.cpp boundaries.cpp
 
