@@ -1,4 +1,5 @@
 AC_INIT(AUTHORS)
+AC_CONFIG_AUX_DIR(config)
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE(panoglview,0.2)
 AC_PROG_CXX
@@ -14,8 +15,8 @@ PLUGIN_LDFLAGS=""
 WINBUILD="1"
 ;;
 *linux*)
-PANOGLCXXFLAGS="`wxgtkd-2.4-config --cxxflags`"
-PANOGLLDADD="`wxgtkd-2.4-config --libs` `wxgtkd-2.4-config --gl-libs`"
+PANOGLCXXFLAGS="`wx-config --cxxflags`"
+PANOGLLDADD="`wx-config --libs` `wx-config --gl-libs`"
 PLUGIN_CXXFLAGS="$PLUGIN_CXXFLAGS `tuvista-config --cxxflags`"
 PLUGIN_LDFLAGS="$PLUGIN_LDFLAGS `tuvista-config --libs`"
 WINBUILD="0"
