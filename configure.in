@@ -4,19 +4,43 @@ AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE(panoglview,0.2)
 AC_PROG_CXX
 
-WX_VERSION=2.4
+AC_ARG_WITH([unicode],
+      	    AC_HELP_STRING([--with-unicode=yes/no],
+			[set to 'yes' if you are using unicode wxWidgets library. (default=no)]),
+			[with_unicode=$withval],
+			[with_unicode='no'])
 
+if test "x$with_unicode" = 'xyes' ; then
+  AM_PATH_WXCONFIG(2.4.2, wxWin=1,,, --unicode=yes)
+else
+  AM_PATH_WXCONFIG(2.4.2, wxWin=1,,, --unicode=no)
+fi
+if test "x$wxWin" != x1; then
+    AC_MSG_ERROR([
+	wxWidgets must be installed on your system
+	but wx-config script couldn't be found.
+			
+	Please check that wx-config is in path, the directory
+	where wxWidgets libraries are installed (returned by
+	'wx-config --libs' command) is in LD_LIBRARY_PATH or
+	equivalent variable and wxWidgets version is 2.4.2 or above.
+	])
+else
+  if test "x$with_unicode" = 'xyes' ; then
+	WX_GL_LIBS="`$WX_CONFIG_PATH --gl-libs`"
+  else
+	WX_GL_LIBS="`$WX_CONFIG_PATH --unicode --gl-libs`"
+  fi
+  AC_SUBST(WX_GL_LIBS)
+fi
+															
 case "$host" in
 *-*-cygwin* | *-*-mingw*)
-PANOGLCXXFLAGS="`wxmsw-2.4-i586-mingw32msvc-config --cxxflags`"
-PANOGLLDADD="`wxmsw-2.4-i586-mingw32msvc-config --libs` `wxmsw-2.4-i586-mingw32msvc-config --gl-libs`"
 PLUGIN_CXXFLAGS=""
 PLUGIN_LDFLAGS=""
 WINBUILD="1"
 ;;
 *linux*)
-PANOGLCXXFLAGS="`wx-config --cxxflags`"
-PANOGLLDADD="`wx-config --libs` `wx-config --gl-libs`"
 PLUGIN_CXXFLAGS="$PLUGIN_CXXFLAGS `tuvista-config --cxxflags`"
 PLUGIN_LDFLAGS="$PLUGIN_LDFLAGS `tuvista-config --libs`"
 WINBUILD="0"
@@ -35,8 +59,6 @@ fi
 
 AM_CONDITIONAL(WIN32_BUILD, test x$WINBUILD = "x1")
 
-AC_SUBST(PANOGLCXXFLAGS)
-AC_SUBST(PANOGLLDADD)
 AC_SUBST(PLUGIN_LDFLAGS)
 AC_SUBST(PLUGIN_CXXFLAGS)
 AC_SUBST(PLUGIN_DIR)
