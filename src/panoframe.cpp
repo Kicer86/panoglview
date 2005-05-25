@@ -56,7 +56,7 @@ END_EVENT_TABLE()
 panoFrame::panoFrame(const wxString &title, const wxPoint &position, const wxSize &size) :
 wxFrame((wxWindow *) NULL, -1, title,position,size),
 m_playrecordtimer(this,ID_PLAYTIMER),
-m_imagename(""),
+m_imagename(wxT("")),
 m_movie()
 {
   wxMenu *filemenu = new wxMenu();
@@ -127,7 +127,7 @@ void panoFrame::openImage(const wxString &filename)
 
 void panoFrame::OnOpenImage(wxCommandEvent &event)
 {
-  wxString imagename = wxFileSelector(_("Open PanoramaImage"),wxEmptyString,wxEmptyString,"png",_("All known image types|*.bmp;*.png;*.jpg;*.gif;*.pcx;*.pnm;*.tif;*.xpm|\
+  wxString imagename = wxFileSelector(_("Open PanoramaImage"),wxEmptyString,wxEmptyString,wxT("png"),_("All known image types|*.bmp;*.png;*.jpg;*.gif;*.pcx;*.pnm;*.tif;*.xpm|\
 BMP files (*.bmp)|bmp|\
 GIF files (*.gif)|*.gif|\
 PNG files (*.png)|*png|\
@@ -137,7 +137,7 @@ PNM files (*.pnm)|*.pnm|\
 TIFF files (*.tif)|*.tif|\
 XPM files (*.xpm)|*.xpm|\
 All files (*.*)|*.*"),wxOPEN|wxFILE_MUST_EXIST);
-  if (imagename !="")
+  if (imagename !=wxT(""))
     openImage(imagename);
 }
 
@@ -153,8 +153,8 @@ void panoFrame::OnFullScreen(wxCommandEvent &event)
 
 void panoFrame::OnOpenProject(wxCommandEvent &event)
 {
-  wxString filename = wxFileSelector(_("Open Project"),wxEmptyString,wxEmptyString,"paf",_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxOPEN|wxFILE_MUST_EXIST);
-  if (filename !=""){
+  wxString filename = wxFileSelector(_("Open Project"),wxEmptyString,wxEmptyString,wxT("paf"),_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxOPEN|wxFILE_MUST_EXIST);
+  if (filename !=wxT("")){
     openProject(filename);
   }
 }
@@ -169,7 +169,7 @@ void panoFrame::openProject(const wxString &filename)
 
   wxString configname = filename;
   
-  if(wxPathOnly(filename) == "")  
+  if(wxPathOnly(filename) == wxT(""))  
     configname = wxGetCwd() + wxFileName::GetPathSeparator() + filename;
 
   char *locOld = setlocale(LC_NUMERIC,"C"); // or LC_ALL
@@ -177,47 +177,47 @@ void panoFrame::openProject(const wxString &filename)
   wxFileConfig config(wxEmptyString,wxEmptyString,
                        configname,wxEmptyString,wxCONFIG_USE_LOCAL_FILE);
   double angle;
-  if(config.Read("Minimum Tilt",&angle))
+  if(config.Read(wxT("Minimum Tilt"),&angle))
     boundaries.setTiltmin(angle);
     
-  if(config.Read("Maximum Tilt",&angle))
+  if(config.Read(wxT("Maximum Tilt"),&angle))
     boundaries.setTiltmax(angle);
     
-  if(config.Read("Minimum Pan",&angle))
+  if(config.Read(wxT("Minimum Pan"),&angle))
     boundaries.setPanmin(angle);
     
-  if(config.Read("Maximum Pan",&angle))
+  if(config.Read(wxT("Maximum Pan"),&angle))
     boundaries.setPanmax(angle);
     
-  if(config.Read("Minimum FOV",&angle))
+  if(config.Read(wxT("Minimum FOV"),&angle))
     boundaries.setFovmin(angle);
     
-  if(config.Read("Maximum FOV",&angle))
+  if(config.Read(wxT("Maximum FOV"),&angle))
     boundaries.setFovmax(angle);
     
-  if(config.Read("Initial Tilt",&angle))
+  if(config.Read(wxT("Initial Tilt"),&angle))
     initialpos.setTilt(angle);
     
-  if(config.Read("Initial Pan",&angle))
+  if(config.Read(wxT("Initial Pan"),&angle))
     initialpos.setPan(angle);
     
-  if(config.Read("Initial FOV",&angle))
+  if(config.Read(wxT("Initial FOV"),&angle))
     initialpos.setFov(angle);
     
-  config.Read("Panorama Image",&imagename,"");
+  config.Read(wxT("Panorama Image"),&imagename,wxT(""));
  
     
   tmp = GetMenuBar()->IsChecked(ID_USEBOUNDARIES);
-  config.Read("Use Boundaries",&tmp);
+  config.Read(wxT("Use Boundaries"),&tmp);
   GetMenuBar()->Check(ID_USEBOUNDARIES,tmp);
   m_canvas->enableUseBoundaries(tmp);
   
   tmp = GetMenuBar()->IsChecked(ID_SHOWBOUNDARIES);
-  config.Read("Show Boundaries",&tmp);
+  config.Read(wxT("Show Boundaries"),&tmp);
   GetMenuBar()->Check(ID_SHOWBOUNDARIES,tmp);
   m_canvas->enableShowBoundaries(tmp);
   
-  if(wxPathOnly(filename) != "")
+  if(wxPathOnly(filename) != wxT(""))
     wxSetWorkingDirectory(wxPathOnly(filename));
 
   m_canvas->setGivenBoundaries(boundaries);
@@ -229,12 +229,12 @@ void panoFrame::openProject(const wxString &filename)
   int numberofframes;
   
   // We have a movie here
-  if(config.Read("Movie Frames",&numberofframes) && numberofframes > 0 ){
+  if(config.Read(wxT("Movie Frames"),&numberofframes) && numberofframes > 0 ){
     m_movie.clear();
     for(int i=0;i<numberofframes;i++){
       wxString position;
-      config.Read(wxString::Format("Frame %d",i),&position);
-      wxStringTokenizer tkz(position,":");
+      config.Read(wxString::Format(wxT("Frame %d"),i),&position);
+      wxStringTokenizer tkz(position,wxT(":"));
       if(tkz.CountTokens() != 3) {
         wxMessageBox(wxString::Format(_("Could not read movie frame %d"),i),_("Information"));
         numberofframes = i;
@@ -260,7 +260,7 @@ void panoFrame::openProject(const wxString &filename)
 
 void panoFrame::openArgumentFile(const wxString &filename)
 {
-  if (filename.Right(4) == wxString(".paf"))
+  if (filename.Right(4) == wxString(wxT(".paf")))
     openProject(filename);
   else
     openImage(filename);
@@ -268,8 +268,8 @@ void panoFrame::openArgumentFile(const wxString &filename)
 
 void panoFrame::OnSaveProject(wxCommandEvent &event)
 {
-  wxString filename = wxFileSelector(_("Save Project"),wxEmptyString,wxEmptyString,"paf",_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxOVERWRITE_PROMPT|wxSAVE);
-  if (filename != ""){
+  wxString filename = wxFileSelector(_("Save Project"),wxEmptyString,wxEmptyString,wxT("paf"),_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxOVERWRITE_PROMPT|wxSAVE);
+  if (filename != wxT("")){
     if (wxFileExists(filename))
       wxRemoveFile(filename);
     wxString imagename;
@@ -283,38 +283,38 @@ void panoFrame::OnSaveProject(wxCommandEvent &event)
     wxFileConfig config(wxEmptyString,wxEmptyString,
                          filename,wxEmptyString,wxCONFIG_USE_LOCAL_FILE);
     if(boundaries.getTilts().validMin())
-      config.Write("Minimum Tilt",boundaries.getTilts().getMin());
+      config.Write(wxT("Minimum Tilt"),boundaries.getTilts().getMin());
     if(boundaries.getTilts().validMax())
-      config.Write("Maximum Tilt",boundaries.getTilts().getMax());
+      config.Write(wxT("Maximum Tilt"),boundaries.getTilts().getMax());
     if(boundaries.getPans().validMin())
-      config.Write("Minimum Pan",boundaries.getPans().getMin());
+      config.Write(wxT("Minimum Pan"),boundaries.getPans().getMin());
     if(boundaries.getPans().validMax())
-      config.Write("Maximum Pan",boundaries.getPans().getMax());
+      config.Write(wxT("Maximum Pan"),boundaries.getPans().getMax());
     if(boundaries.getFovs().validMin())
-      config.Write("Minimum FOV",boundaries.getFovs().getMin());
+      config.Write(wxT("Minimum FOV"),boundaries.getFovs().getMin());
     if(boundaries.getFovs().validMax())
-      config.Write("Maximum FOV",boundaries.getFovs().getMax());
+      config.Write(wxT("Maximum FOV"),boundaries.getFovs().getMax());
 
-    config.Write("Initial Tilt",initialpos.getTilt());
-    config.Write("Initial Pan",initialpos.getPan());
-    config.Write("Initial FOV",initialpos.getFov());
+    config.Write(wxT("Initial Tilt"),initialpos.getTilt());
+    config.Write(wxT("Initial Pan"),initialpos.getPan());
+    config.Write(wxT("Initial FOV"),initialpos.getFov());
 
     wxFileName imagefilename(m_imagename);
     wxFileName projectfilename(filename);
 
     imagefilename.MakeRelativeTo(projectfilename.GetPath()+wxFileName::GetPathSeparator());
 
-    config.Write("Panorama Image",imagefilename.GetFullPath());
-    config.Write("Use Boundaries",m_canvas->getUseBoundaries());
-    config.Write("Show Boundaries",m_canvas->getShowBoundaries());
+    config.Write(wxT("Panorama Image"),imagefilename.GetFullPath());
+    config.Write(wxT("Use Boundaries"),m_canvas->getUseBoundaries());
+    config.Write(wxT("Show Boundaries"),m_canvas->getShowBoundaries());
 
     if(m_movie.size())
     {
-      config.Write("Movie Frames",(int) m_movie.size());
+      config.Write(wxT("Movie Frames"),(int) m_movie.size());
       int i=0;
       for(m_frame = m_movie.begin(); m_frame != m_movie.end();++m_frame,i++)
       {
-        config.Write(wxString::Format("Frame %d",i),wxString::Format("%f:%f:%f",m_frame->getPan(),m_frame->getTilt(),m_frame->getFov()));
+        config.Write(wxString::Format(wxT("Frame %d"),i),wxString::Format(wxT("%f:%f:%f"),m_frame->getPan(),m_frame->getTilt(),m_frame->getFov()));
       }
     }
     setlocale(LC_NUMERIC, locOld);

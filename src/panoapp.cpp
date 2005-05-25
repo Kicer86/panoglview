@@ -39,7 +39,7 @@
 bool panoApp::OnInit()
 {
   wxInitAllImageHandlers();
-  panoFrame *panoframe = new panoFrame("PanoramaViewer",wxDefaultPosition,wxSize(640,480));
+  panoFrame *panoframe = new panoFrame(wxT("PanoramaViewer"),wxDefaultPosition,wxSize(640,480));
     
   panoframe->Show(TRUE);
   
