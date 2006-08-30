@@ -432,6 +432,6 @@ void panoFrame::OnPlayRecord(wxTimerEvent &event)
 
 void panoFrame::OnAbout(wxCommandEvent &event)
 {
-  wxMessageBox(_("GL Panorama Viewer V 0.1\n\
+  wxMessageBox(_("GL Panorama Viewer V 0.2.1\n\
 (c) 2003 Fabian Wenzel"),_("Information"));
 }
