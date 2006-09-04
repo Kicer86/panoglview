@@ -59,8 +59,8 @@ m_divisions(128)
 {
   for(int i=0;i<16;++i)
     m_projectionmatrix[i] = 0;
-  for(int i=0;i<16;i+=5)
-    m_projectionmatrix[i] = 1.0;
+  for(int j=0;j<16;j+=5)
+    m_projectionmatrix[j] = 1.0;
 }
 
 panoCanvas::~panoCanvas()
@@ -132,6 +132,9 @@ void panoCanvas::deletePanorama()
 
 void panoCanvas::createPanorama(const wxImage &image)
 {
+  if (!m_initialized)
+	  initGL();
+
   if(m_hasimage)
     deletePanorama();
 
@@ -158,7 +161,7 @@ void panoCanvas::createPanorama(const wxImage &image)
   unsigned char *tmp = new unsigned char [m_maxsize*m_maxsize];
   memset(tmp,m_maxsize*m_maxsize,0);
 
-  wxProgressDialog progressDialog(wxT("Working"),wxT("Generating Panoramaimage"),m_numOfTexPatches.x*m_numOfTexPatches.y);
+  wxProgressDialog progressDialog(wxT("Working"),wxT("Generating Panorama Image"),m_numOfTexPatches.x*m_numOfTexPatches.y);
 
   for(int y=0;y<m_numOfTexPatches.y;y++)
     for(int x=0;x<m_numOfTexPatches.x;x++,textureindex++){

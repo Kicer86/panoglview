@@ -25,6 +25,14 @@
 #undef min
 #endif
 
+/* My MSVC 6 libraries don't have std::min and std::max, only _cpp_min and _cpp_max */
+#ifdef _MSC_VER
+#if ( _MSC_VER < 1300 )  
+  #define std::min std::_cpp_min
+  #define std::max std::_cpp_max
+#endif
+#endif
+
 panoDropTarget::panoDropTarget(panoFrame *frame) :
 p_frame(frame)
 {
@@ -55,7 +63,7 @@ END_EVENT_TABLE()
 
 panoInteractiveCanvas::panoInteractiveCanvas(wxWindow* parent, int id, const wxPoint& position, const wxSize& size):
 panoCanvas(parent, id, position, size),
-m_timerelapse(20),
+m_timerelapse(10),
 m_timer(this,ID_TIMER),
 m_givenboundaries(),
 p_frame((panoFrame *)parent),
@@ -69,6 +77,7 @@ m_rightdown(false),
 m_updown(false),
 m_downdown(false),
 m_leftbuttondown(false),
+m_rightbuttondown(false),
 m_wheelrot(0)
 {
   panoDropTarget *target = new panoDropTarget(p_frame);
@@ -222,19 +231,36 @@ void panoInteractiveCanvas::OnKeyUp(wxKeyEvent &event)
     break;
   }
 
-  if(! (m_zoomindown || m_zoomoutdown || m_leftdown || m_rightdown || m_updown || m_downdown || m_leftbuttondown))
+  if(!anyKeysOrButtonsAreDown())
     m_timer.Stop();
 
   updateStatusText();
     event.Skip();
 }
 
+
+//
+// Helper functions to test and clear the "down" states of keys and buttons.
+// If you add more active keys or buttons, modify these functions to add
+// their states to the test or clearing operation.
+//
+bool panoInteractiveCanvas::anyKeysOrButtonsAreDown()
+{
+  return (m_zoomindown || m_zoomoutdown || m_leftdown || m_rightdown || m_updown || m_downdown || m_leftbuttondown || m_rightbuttondown);
+}
+
+void panoInteractiveCanvas::clearAllKeyAndButtonStates()
+{
+      m_zoomindown = m_zoomoutdown = m_leftdown = m_rightdown = m_updown = m_downdown = m_leftbuttondown = m_rightbuttondown = false;
+}
+
+
 void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
 {
   bool neednewtrigger = false;
 
   if (event.Leaving())
-    m_zoomindown = m_zoomoutdown = m_leftdown = m_rightdown = m_updown = m_downdown = false;
+    clearAllKeyAndButtonStates();
 
   if (event.LeftDown())
   {
@@ -250,12 +276,22 @@ void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
     {
       setBoundary(event.GetPosition());
     }
+  } else if (event.RightDown()){
+        // Zoom with the right mouse button
+        m_rightbuttondown = true;
+        m_clickposition = event.GetPosition();
+        m_timer.Start(m_timerelapse);
+  } else if (event.RightUp()){
+        m_rightbuttondown = false;
+  }
+  if(! anyKeysOrButtonsAreDown()){
+      m_timer.Stop();
   } else {
     if(m_boundarymode != -1)
       Refresh();
   }
 
-  if(m_leftbuttondown)
+  if(m_leftbuttondown || m_rightbuttondown)
   {
     m_diff = event.GetPosition() - m_clickposition;
   }
@@ -287,13 +323,23 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
 {
   CPosition increment;
 
+  // Tilt (up-down) on left-mouse drag up/down
   if(m_leftbuttondown){
     if(m_diff.y){
-      double angle = log(1 + 2 * abs(m_diff.y)/(float) m_winsize.x)*m_position.getFov()/4.0*( 1 + ( abs(m_diff.y) < abs(m_diff.x) ));
+      double angle = log(1 + 0.5 * abs(m_diff.y)/(float) m_winsize.x)*m_position.getFov()/4.0*( 1 + ( abs(m_diff.y) < abs(m_diff.x) ));
       increment.setTilt(m_diff.y < 0 ? -angle:angle);
     }
+  }
+  // zoom on right mouse drag up/down
+  if(m_rightbuttondown){
+      if(m_diff.y){
+        increment.incrementFov(-0.0002*m_diff.y*m_position.getFov());
+      }
+  }
+  // Pan (left-right) works with either mouse button
+  if (m_leftbuttondown || m_rightbuttondown){
     if(m_diff.x){
-      double angle = log(1 + 2*abs(m_diff.x)/(float) m_winsize.y)*m_position.getFov()/4.0*(1 + ( abs(m_diff.x) < abs(m_diff.y) ));
+      double angle = log(1 + 0.5*abs(m_diff.x)/(float) m_winsize.y)*m_position.getFov()/4.0*(1 + ( abs(m_diff.x) < abs(m_diff.y) ));
       increment.setPan(m_diff.x < 0 ? -angle:angle);
     }
   }

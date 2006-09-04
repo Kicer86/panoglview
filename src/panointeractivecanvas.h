@@ -44,6 +44,8 @@ public:
   void enableShowBoundaries(bool show);
   void enableUseBoundaries(bool use);
   void resetGivenBoundaries();
+  bool anyKeysOrButtonsAreDown();
+  void clearAllKeyAndButtonStates();
 
   bool getShowBoundaries()
   {
@@ -78,6 +80,7 @@ private:
 
   int sign(const double &value) const;
   bool     m_leftbuttondown;
+  bool     m_rightbuttondown;
   bool     m_zoomindown;
   bool     m_zoomoutdown;
   bool     m_leftdown;

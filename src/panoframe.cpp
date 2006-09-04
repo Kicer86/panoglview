@@ -432,6 +432,18 @@ void panoFrame::OnPlayRecord(wxTimerEvent &event)
 
 void panoFrame::OnAbout(wxCommandEvent &event)
 {
-  wxMessageBox(_("GL Panorama Viewer V 0.2.1\n\
-(c) 2003 Fabian Wenzel"),_("Information"));
+  wxMessageBox(_("GL Panorama Viewer V 0.2.2\n\
+(c) 2003 Fabian Wenzel\n\
+sourceforge.net/projects/hugin\n\
+\n\
+Keys:\n\
+Up/Down/Left/Right to pan\n\
+Zoom with + and -\n\
+\n\
+Mouse:\n\
+  Left-click pans\n\
+  Right-click zooms\n\
+\n\
+Control-F enters fullscreen,\n\
+ESC exits fullscreen."),_("Information"));
 }
