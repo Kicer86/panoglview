@@ -98,7 +98,9 @@ private:
   int      m_wheelrot;
   int      m_stickypandirection;
   int      m_stickytiltdirection;
-  
+
+  CPosition m_increment;
+
   CBoundaries m_givenboundaries;
   panoFrame *p_frame;
 

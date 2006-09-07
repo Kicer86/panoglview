@@ -271,7 +271,7 @@ void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
   } else if (event.LeftUp()){
     m_leftbuttondown = false;
     if(! (m_zoomindown || m_zoomoutdown || m_leftdown || m_rightdown || m_updown || m_downdown ))
-      m_timer.Stop();
+//      m_timer.Stop();
     if(m_boundarymode != -1)
     {
       setBoundary(event.GetPosition());
@@ -285,7 +285,7 @@ void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
         m_rightbuttondown = false;
   }
   if(! anyKeysOrButtonsAreDown()){
-      m_timer.Stop();
+//      m_timer.Stop();
   } else {
     if(m_boundarymode != -1)
       Refresh();
@@ -321,55 +321,120 @@ void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
 
 void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
 {
-  CPosition increment;
 
+    // time sine the last update (in seconds)
+    // should measure the actual time here...
+    double dt = m_timerelapse/1000.0;
+    
+    // time until the maximum speed is reached (in seconds)
+    double acceltime = 0.25;
+
+    double speedTilt = m_increment.getTilt();
+    double speedPan = m_increment.getPan();
+    double speedZoom = m_increment.getFov();
+    std::cout << "OnTimer: speeds: " << speedPan << " " << speedTilt << " " << speedZoom << std::endl;
   // Tilt (up-down) on left-mouse drag up/down
   if(m_leftbuttondown){
-    if(m_diff.y){
-      double angle = log(1 + 0.5 * abs(m_diff.y)/(float) m_winsize.x)*m_position.getFov()/4.0*( 1 + ( abs(m_diff.y) < abs(m_diff.x) ));
-      increment.setTilt(m_diff.y < 0 ? -angle:angle);
-    }
+      if(m_diff.y){
+          // max speed in deg/s, original formula
+          // should be changed, IMHO, it is too sensitive for small movements
+          double maxSpeedTilt = log(1 + 0.5 * abs(m_diff.y)/(float) m_winsize.x)*m_position.getFov()/4.0*( 1 + ( abs(m_diff.y) < abs(m_diff.x) )) /dt;
+          // acceleration in degree/s^2.
+          double accel = maxSpeedTilt/acceltime;
+          double dspeed =  accel * dt;
+          if (m_diff.y < 0 ) {
+              speedTilt = std::max(speedTilt -dspeed, -maxSpeedTilt);
+          } else {
+              speedTilt = std::min(speedTilt + dspeed, maxSpeedTilt);
+          }
+      }
   }
+  std::cout << "OnTimer: diff.y " <<  m_diff.y << " speedTilt:" << speedTilt << std::endl;
+
   // zoom on right mouse drag up/down
   if(m_rightbuttondown){
+      std::cout << "right button down" << std::endl;
       if(m_diff.y){
-        increment.incrementFov(-0.0002*m_diff.y*m_position.getFov());
+          speedZoom = (-0.0002*m_diff.y*m_position.getFov());
       }
   }
   // Pan (left-right) works with either mouse button
   if (m_leftbuttondown || m_rightbuttondown){
-    if(m_diff.x){
-      double angle = log(1 + 0.5*abs(m_diff.x)/(float) m_winsize.y)*m_position.getFov()/4.0*(1 + ( abs(m_diff.x) < abs(m_diff.y) ));
-      increment.setPan(m_diff.x < 0 ? -angle:angle);
-    }
+      if(m_diff.x){
+          // max speed in deg/s, original formula
+          // should be changed, IMHO, it is too sensitive for small movements
+          double maxSpeedPan = log(1 + 0.5*abs(m_diff.x)/(float) m_winsize.y)*m_position.getFov()/4.0*(1 + ( abs(m_diff.x) < abs(m_diff.y) )) / dt;
+          // acceleration in degree/s^2.
+          double accel = maxSpeedPan/acceltime;
+          double dspeed =  accel * dt;
+          if (m_diff.x > 0 ) {
+              speedPan = std::min(speedPan + dspeed, maxSpeedPan);
+          } else {
+              speedPan = std::max(speedPan - dspeed, -maxSpeedPan);
+          }
+          std::cout << "OnTimer: maxSpeedX: " << maxSpeedPan << " accel:" << accel << " dspeed:" << dspeed << " speedTilt:" << speedPan << std::endl;
+      }
   }
+  std::cout << "OnTimer: diff.x " <<  m_diff.x << " speedPan:" << speedPan << std::endl;
 
-
+  // TODO: speed should be relative to field of view
   if(m_zoomindown)
-    increment.incrementFov(-0.03*m_position.getFov());
+    speedZoom = (-0.03*m_position.getFov());
 
   if(m_zoomoutdown)
-    increment.incrementFov(0.03*m_position.getFov());
+    speedZoom = (0.03*m_position.getFov());
 
   if(m_leftdown)
-    increment.incrementPan(-0.02*m_position.getFov()*m_aspectratio);
+      speedPan = (-0.02*m_position.getFov()*m_aspectratio/dt);
 
   if(m_rightdown)
-    increment.incrementPan(0.02*m_position.getFov()*m_aspectratio);
+      speedPan = (0.02*m_position.getFov()*m_aspectratio/dt);
 
   if(m_updown)
-    increment.incrementTilt(-0.02*m_position.getFov());
+      speedTilt = (-0.02*m_position.getFov()/dt);
 
   if(m_downdown)
-    increment.incrementTilt(0.02*m_position.getFov());
+      speedTilt = (0.02*m_position.getFov()/dt);
 
-  incrementPosition(increment);
+  std::cout << "actual speeds: " << speedPan << "  " << speedTilt << "  " << speedZoom << std::endl;
+
+  incrementPosition(CPosition(speedPan*dt, speedTilt*dt, speedZoom*dt));
   updateStatusText();
   Refresh();
+
+  // smooth slowdown. Modelling a constant deceleration does not feel to good
+  // exponential decrese feels better. Maybe a S shaped acceleration
+  // curve would be even nicer
+  if (!(m_leftbuttondown || m_rightbuttondown)) {
+    // TODO: this is dependent on dt. calculate accordingly
+    double slowdownFactor = 0.92;
+    // stop movement if the speed is less than 80th of the fov
+    double limit = m_position.getFov()/80.0;
+//    speedPan += (speedPan < 0 ? deceleration : -deceleration);
+    speedPan *= slowdownFactor;
+    // check if we have decelerated to zero...
+    if (fabs(speedPan) <= limit) speedPan = 0.0;
+    //speedTilt += (speedTilt < 0 ? deceleration : -deceleration);
+    speedTilt*= slowdownFactor;
+    if (fabs(speedTilt) <= limit) speedTilt = 0.0;
+    //speedZoom += (speedZoom < 0 ? deceleration : -deceleration);
+    speedZoom*= slowdownFactor;
+    if (fabs(speedZoom) <= limit) speedZoom = 0.0;
+
+
+    std::cout << "OnTimer after friction speeds: " << speedTilt << " " << speedPan << " " << speedZoom << std::endl;
+
+    // stop updating if all speed have reached zero
+    if (fabs(speedPan) == 0.0 && fabs(speedTilt) == 0.0 && fabs(speedZoom) == 0.0) {
+        m_timer.Stop();
+    }
+  }
+  m_increment = CPosition(speedPan, speedTilt, speedZoom);
 }
 
 void panoInteractiveCanvas::incrementPosition(CPosition increment)
 {
+  std::cout << " m_position (before)" << m_position.getPan() << "  " << m_position.getTilt() << "  " << m_position.getFov() << std::endl;
   if(!m_useboundaries){
     CPosition withincrement = m_position + increment;
     if ( (withincrement.getTilt()) <= -90.0 || withincrement.getTilt() >= 90.0 )
@@ -409,6 +474,7 @@ void panoInteractiveCanvas::incrementPosition(CPosition increment)
       }
   }
   panoCanvas::incrementPosition(increment);
+  std::cout << " m_position (after  )" << m_position.getPan() << "  " << m_position.getTilt() << "  " << m_position.getFov() << std::endl;
 }
 
 void panoInteractiveCanvas::updateStatusText()
