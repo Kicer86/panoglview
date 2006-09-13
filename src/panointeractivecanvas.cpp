@@ -475,7 +475,7 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
 
 void panoInteractiveCanvas::incrementPosition(CPosition increment)
 {
-  std::cout << " m_position (before)" << m_position.getPan() << "  " << m_position.getTilt() << "  " << m_position.getFov() << std::endl;
+//  std::cout << " m_position (before)" << m_position.getPan() << "  " << m_position.getTilt() << "  " << m_position.getFov() << std::endl;
   if(!m_useboundaries){
     CPosition withincrement = m_position + increment;
     if ( (withincrement.getTilt()) <= -90.0 || withincrement.getTilt() >= 90.0 )
@@ -515,7 +515,7 @@ void panoInteractiveCanvas::incrementPosition(CPosition increment)
       }
   }
   panoCanvas::incrementPosition(increment);
-  std::cout << " m_position (after  )" << m_position.getPan() << "  " << m_position.getTilt() << "  " << m_position.getFov() << std::endl;
+//  std::cout << " m_position (after  )" << m_position.getPan() << "  " << m_position.getTilt() << "  " << m_position.getFov() << std::endl;
 }
 
 void panoInteractiveCanvas::updateStatusText()
