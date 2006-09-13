@@ -443,7 +443,9 @@ Zoom with + and -\n\
 Mouse:\n\
   Left-click pans\n\
   Right-click zooms\n\
+  Comma (',') toggles inertia\n\
 \n\
 Control-F enters fullscreen,\n\
 ESC exits fullscreen."),_("Information"));
 }
+

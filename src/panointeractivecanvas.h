@@ -87,6 +87,8 @@ private:
   bool     m_rightdown;
   bool     m_updown;
   bool     m_downdown;
+  bool     m_enableInertia;
+  bool     m_toggleInertiaKeyDown;
   wxPoint  m_clickposition;
   wxPoint  m_diff;
   wxPoint  m_currentpos;

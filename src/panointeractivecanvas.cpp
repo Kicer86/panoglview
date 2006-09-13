@@ -16,6 +16,7 @@
 #include <wx/log.h>
 #include <cmath>
 #include <algorithm>
+#include <iostream>  // needed for cout on MS VC6
 
 #ifdef max
 #undef max
@@ -25,12 +26,14 @@
 #undef min
 #endif
 
-/* My MSVC 6 libraries don't have std::min and std::max, only _cpp_min and _cpp_max */
-#ifdef _MSC_VER
-#if ( _MSC_VER < 1300 )  
-  #define std::min std::_cpp_min
-  #define std::max std::_cpp_max
-#endif
+/* MSVC 6 libraries don't all have std::min and std::max, only _cpp_min and _cpp_max */
+/* The "fOO + 0" trick here makes the if work even if FOO is not defined */
+#if ( (_MSC_VER + 0) != 0 && (_MSC_VER + 0) < 1300 )  
+  #define STD_MIN std::_cpp_min
+  #define STD_MAX std::_cpp_max
+#else
+  #define STD_MIN std::min
+  #define STD_MAX std::max
 #endif
 
 panoDropTarget::panoDropTarget(panoFrame *frame) :
@@ -45,8 +48,9 @@ bool panoDropTarget::OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& file
 }
 
   
-static const int ZOOMIN  = '+';
-static const int ZOOMOUT = '-';
+static const int ZOOMIN_KEY  = '+';
+static const int ZOOMOUT_KEY = '-';
+static const int TOGGLE_INERTIA_KEY = ',';
 
 enum {
   ID_TIMER=1
@@ -76,8 +80,10 @@ m_leftdown(false),
 m_rightdown(false),
 m_updown(false),
 m_downdown(false),
+m_toggleInertiaKeyDown(false),
 m_leftbuttondown(false),
 m_rightbuttondown(false),
+m_enableInertia(true),
 m_wheelrot(0)
 {
   panoDropTarget *target = new panoDropTarget(p_frame);
@@ -152,14 +158,22 @@ void panoInteractiveCanvas::OnKeyDown(wxKeyEvent& event)
 {
   switch(event.GetKeyCode()){
 
-  case ZOOMIN:
+  case ZOOMIN_KEY:
   case WXK_NUMPAD_ADD:
     m_zoomindown = true;
     break;
 
-  case ZOOMOUT:
+  case ZOOMOUT_KEY:
   case WXK_NUMPAD_SUBTRACT:
     m_zoomoutdown = true;
+    break;
+
+  case TOGGLE_INERTIA_KEY:
+    // only process this once per keypress
+    if (!m_toggleInertiaKeyDown) {
+      m_enableInertia = !m_enableInertia;
+      m_toggleInertiaKeyDown = true;
+    }
     break;
 
   case WXK_ESCAPE:
@@ -197,14 +211,18 @@ void panoInteractiveCanvas::OnKeyUp(wxKeyEvent &event)
 {
   switch(event.GetKeyCode()){
 
-  case ZOOMIN:
+  case ZOOMIN_KEY:
   case WXK_NUMPAD_ADD:    
     m_zoomindown = false;
     break;
 
-  case ZOOMOUT:
+  case ZOOMOUT_KEY:
   case WXK_NUMPAD_SUBTRACT:
     m_zoomoutdown = false;
+    break;
+
+  case TOGGLE_INERTIA_KEY:
+    m_toggleInertiaKeyDown = false;
     break;
 
   case WXK_LEFT:
@@ -232,7 +250,7 @@ void panoInteractiveCanvas::OnKeyUp(wxKeyEvent &event)
   }
 
   if(!anyKeysOrButtonsAreDown())
-    m_timer.Stop();
+    //m_timer.Stop();
 
   updateStatusText();
     event.Skip();
@@ -246,32 +264,34 @@ void panoInteractiveCanvas::OnKeyUp(wxKeyEvent &event)
 //
 bool panoInteractiveCanvas::anyKeysOrButtonsAreDown()
 {
-  return (m_zoomindown || m_zoomoutdown || m_leftdown || m_rightdown || m_updown || m_downdown || m_leftbuttondown || m_rightbuttondown);
+  return (m_zoomindown || m_zoomoutdown || 
+      m_leftdown || m_rightdown || 
+      m_updown || m_downdown || 
+      m_leftbuttondown || m_rightbuttondown);
 }
 
 void panoInteractiveCanvas::clearAllKeyAndButtonStates()
 {
-      m_zoomindown = m_zoomoutdown = m_leftdown = m_rightdown = m_updown = m_downdown = m_leftbuttondown = m_rightbuttondown = false;
+      m_zoomindown = m_zoomoutdown = 
+          m_leftdown = m_rightdown = 
+          m_updown = m_downdown = 
+          m_leftbuttondown = m_rightbuttondown = 
+          m_toggleInertiaKeyDown = false;
 }
 
 
 void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
 {
-  bool neednewtrigger = false;
-
   if (event.Leaving())
     clearAllKeyAndButtonStates();
 
   if (event.LeftDown())
   {
     m_leftbuttondown = true;
-    neednewtrigger = true;
     m_clickposition = event.GetPosition();
     m_timer.Start(m_timerelapse);
   } else if (event.LeftUp()){
     m_leftbuttondown = false;
-    if(! (m_zoomindown || m_zoomoutdown || m_leftdown || m_rightdown || m_updown || m_downdown ))
-//      m_timer.Stop();
     if(m_boundarymode != -1)
     {
       setBoundary(event.GetPosition());
@@ -285,6 +305,7 @@ void panoInteractiveCanvas::OnMouse(wxMouseEvent& event)
         m_rightbuttondown = false;
   }
   if(! anyKeysOrButtonsAreDown()){
+// Used to stop but not any more, decel instead
 //      m_timer.Stop();
   } else {
     if(m_boundarymode != -1)
@@ -332,30 +353,38 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
     double speedTilt = m_increment.getTilt();
     double speedPan = m_increment.getPan();
     double speedZoom = m_increment.getFov();
-    std::cout << "OnTimer: speeds: " << speedPan << " " << speedTilt << " " << speedZoom << std::endl;
+
+//    std::cout << "OnTimer: speeds: " << speedPan << " " << speedTilt << " " << speedZoom << std::endl;
   // Tilt (up-down) on left-mouse drag up/down
   if(m_leftbuttondown){
       if(m_diff.y){
           // max speed in deg/s, original formula
           // should be changed, IMHO, it is too sensitive for small movements
           double maxSpeedTilt = log(1 + 0.5 * abs(m_diff.y)/(float) m_winsize.x)*m_position.getFov()/4.0*( 1 + ( abs(m_diff.y) < abs(m_diff.x) )) /dt;
-          // acceleration in degree/s^2.
-          double accel = maxSpeedTilt/acceltime;
-          double dspeed =  accel * dt;
+          double dspeed;
+          if (m_enableInertia) {
+              // acceleration in degree/s^2.
+              double accel = maxSpeedTilt/acceltime;
+              dspeed =  accel * dt;
+          }
+          else {
+              // no acceleration
+              dspeed = maxSpeedTilt;
+          }
           if (m_diff.y < 0 ) {
-              speedTilt = std::max(speedTilt -dspeed, -maxSpeedTilt);
+              speedTilt = STD_MAX(speedTilt -dspeed, -maxSpeedTilt);
           } else {
-              speedTilt = std::min(speedTilt + dspeed, maxSpeedTilt);
+              speedTilt = STD_MIN(speedTilt + dspeed, maxSpeedTilt);
           }
       }
   }
-  std::cout << "OnTimer: diff.y " <<  m_diff.y << " speedTilt:" << speedTilt << std::endl;
+//  std::cout << "OnTimer: diff.y " <<  m_diff.y << " speedTilt:" << speedTilt << std::endl;
 
   // zoom on right mouse drag up/down
   if(m_rightbuttondown){
-      std::cout << "right button down" << std::endl;
+//      std::cout << "right button down" << std::endl;
       if(m_diff.y){
-          speedZoom = (-0.0002*m_diff.y*m_position.getFov());
+          speedZoom = (-0.01*m_diff.y*m_position.getFov());
       }
   }
   // Pan (left-right) works with either mouse button
@@ -364,18 +393,24 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
           // max speed in deg/s, original formula
           // should be changed, IMHO, it is too sensitive for small movements
           double maxSpeedPan = log(1 + 0.5*abs(m_diff.x)/(float) m_winsize.y)*m_position.getFov()/4.0*(1 + ( abs(m_diff.x) < abs(m_diff.y) )) / dt;
-          // acceleration in degree/s^2.
-          double accel = maxSpeedPan/acceltime;
-          double dspeed =  accel * dt;
-          if (m_diff.x > 0 ) {
-              speedPan = std::min(speedPan + dspeed, maxSpeedPan);
-          } else {
-              speedPan = std::max(speedPan - dspeed, -maxSpeedPan);
+          double dspeed;
+          if (m_enableInertia) {
+              // acceleration in degree/s^2.
+              double accel = maxSpeedPan/acceltime;
+              dspeed =  accel * dt;
           }
-          std::cout << "OnTimer: maxSpeedX: " << maxSpeedPan << " accel:" << accel << " dspeed:" << dspeed << " speedTilt:" << speedPan << std::endl;
+          else {
+              dspeed = maxSpeedPan;
+          }
+          if (m_diff.x > 0 ) {
+              speedPan = STD_MIN(speedPan + dspeed, maxSpeedPan);
+          } else {
+              speedPan = STD_MAX(speedPan - dspeed, -maxSpeedPan);
+          }
+//          std::cout << "OnTimer: maxSpeedX: " << maxSpeedPan << " accel:" << accel << " dspeed:" << dspeed << " speedTilt:" << speedPan << std::endl;
       }
   }
-  std::cout << "OnTimer: diff.x " <<  m_diff.x << " speedPan:" << speedPan << std::endl;
+//  std::cout << "OnTimer: diff.x " <<  m_diff.x << " speedPan:" << speedPan << std::endl;
 
   // TODO: speed should be relative to field of view
   if(m_zoomindown)
@@ -396,7 +431,7 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
   if(m_downdown)
       speedTilt = (0.02*m_position.getFov()/dt);
 
-  std::cout << "actual speeds: " << speedPan << "  " << speedTilt << "  " << speedZoom << std::endl;
+//  std::cout << "actual speeds: " << speedPan << "  " << speedTilt << "  " << speedZoom << std::endl;
 
   incrementPosition(CPosition(speedPan*dt, speedTilt*dt, speedZoom*dt));
   updateStatusText();
@@ -406,23 +441,29 @@ void panoInteractiveCanvas::OnTimer(wxTimerEvent &event)
   // exponential decrese feels better. Maybe a S shaped acceleration
   // curve would be even nicer
   if (!(m_leftbuttondown || m_rightbuttondown)) {
-    // TODO: this is dependent on dt. calculate accordingly
-    double slowdownFactor = 0.92;
-    // stop movement if the speed is less than 80th of the fov
-    double limit = m_position.getFov()/80.0;
-//    speedPan += (speedPan < 0 ? deceleration : -deceleration);
-    speedPan *= slowdownFactor;
-    // check if we have decelerated to zero...
-    if (fabs(speedPan) <= limit) speedPan = 0.0;
-    //speedTilt += (speedTilt < 0 ? deceleration : -deceleration);
-    speedTilt*= slowdownFactor;
-    if (fabs(speedTilt) <= limit) speedTilt = 0.0;
-    //speedZoom += (speedZoom < 0 ? deceleration : -deceleration);
-    speedZoom*= slowdownFactor;
-    if (fabs(speedZoom) <= limit) speedZoom = 0.0;
-
-
-    std::cout << "OnTimer after friction speeds: " << speedTilt << " " << speedPan << " " << speedZoom << std::endl;
+    if (m_enableInertia) {
+        // TODO: this is dependent on dt. calculate accordingly
+        double slowdownFactor = 0.92;
+        // stop movement if the speed is less than 80th of the fov
+        double limit = m_position.getFov()/80.0;
+    //    speedPan += (speedPan < 0 ? deceleration : -deceleration);
+        speedPan *= slowdownFactor;
+        // check if we have decelerated to zero...
+        if (fabs(speedPan) <= limit) speedPan = 0.0;
+        //speedTilt += (speedTilt < 0 ? deceleration : -deceleration);
+        speedTilt*= slowdownFactor;
+        if (fabs(speedTilt) <= limit) speedTilt = 0.0;
+        //speedZoom += (speedZoom < 0 ? deceleration : -deceleration);
+        speedZoom*= slowdownFactor;
+        if (fabs(speedZoom) <= limit) speedZoom = 0.0;
+//      std::cout << "OnTimer after friction speeds: " << speedTilt << " " << speedPan << " " << speedZoom << std::endl;
+    }
+    else {
+        // Mouse buttons are up and no inerta: stop all movement
+        speedPan = 0;
+        speedTilt = 0;
+        speedZoom = 0;
+    }
 
     // stop updating if all speed have reached zero
     if (fabs(speedPan) == 0.0 && fabs(speedTilt) == 0.0 && fabs(speedZoom) == 0.0) {
@@ -440,8 +481,8 @@ void panoInteractiveCanvas::incrementPosition(CPosition increment)
     if ( (withincrement.getTilt()) <= -90.0 || withincrement.getTilt() >= 90.0 )
       increment.setTilt(0.0);
 
-    if(std::min(withincrement.getFov(),(withincrement.getFov())*m_aspectratio) <= 1.0  ||
-       std::max(withincrement.getFov(),(withincrement.getFov())*m_aspectratio) >= 180.0 )
+    if(STD_MIN(withincrement.getFov(),(withincrement.getFov())*m_aspectratio) <= 1.0  ||
+       STD_MAX(withincrement.getFov(),(withincrement.getFov())*m_aspectratio) >= 180.0 )
       increment.setFov(0.0);
   } else {
 
@@ -592,10 +633,10 @@ void panoInteractiveCanvas::enableUseBoundaries(bool use)
     if (m_givenboundaries.getPans().validRange()){
       if( m_givenboundaries.getPans().getMin() > m_givenboundaries.getPans().getMax() ) {
         position.setPan ((m_givenboundaries.getPans().getMax()  + m_givenboundaries.getPans().getMin() - 360.0 )  / 2.0);
-        position.setFov (std::min(position.getFov(), (m_givenboundaries.getPans().getMax() + 360.0 - m_givenboundaries.getPans().getMin())/m_aspectratio));
+        position.setFov (STD_MIN(position.getFov(), (m_givenboundaries.getPans().getMax() + 360.0 - m_givenboundaries.getPans().getMin())/m_aspectratio));
       } else {
         position.setPan ((m_givenboundaries.getPans().getMax() + m_givenboundaries.getPans().getMin() )  / 2.0);
-        position.setFov (std::min(position.getFov(), (m_givenboundaries.getPans().getMax() - m_givenboundaries.getPans().getMin())/m_aspectratio));
+        position.setFov (STD_MIN(position.getFov(), (m_givenboundaries.getPans().getMax() - m_givenboundaries.getPans().getMin())/m_aspectratio));
       }
     } else
       position.setPan (0.0);
@@ -603,7 +644,7 @@ void panoInteractiveCanvas::enableUseBoundaries(bool use)
     if (m_givenboundaries.getTilts().validRange())
     {
       position.setTilt ((m_givenboundaries.getTilts().getMin() + m_givenboundaries.getTilts().getMax() )/ 2.0);
-      position.setFov  (std::min(position.getFov(), m_givenboundaries.getTilts().getMax() - m_givenboundaries.getTilts().getMin()));
+      position.setFov  (STD_MIN(position.getFov(), m_givenboundaries.getTilts().getMax() - m_givenboundaries.getTilts().getMin()));
     } else
       position.setTilt (0.0);
 
