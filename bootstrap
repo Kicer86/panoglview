@@ -41,7 +41,7 @@ if $AUTOCONF --version < /dev/null > /dev/null 2>&1 ; then
 	autoconf_version=`$AUTOCONF --version | sed 's/^[^0-9]*\([0-9.][0-9.]*\).*/\1/'`
 #	echo autoconf version: $autoconf_version
 	case $autoconf_version in
-	    2.5*)
+	    2.5*|2.6*)
 		have_autoconf=true
 		;;
 	esac
@@ -59,7 +59,7 @@ if $AUTOMAKE --version < /dev/null > /dev/null 2>&1 ; then
 	automake_version=`$AUTOMAKE --version | sed 's/^[^0-9]*\([0-9.][0-9.]*\).*/\1/'`
 #	echo automake version: $automake_version
 	case $automake_version in
-	    1.7*|1.8*|1.9*)
+	    1.7*|1.8*|1.9*|1.10*)
 		have_automake=true
 		;;
 	esac

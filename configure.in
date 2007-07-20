@@ -42,7 +42,7 @@ AC_ARG_WITH([unicode],
       	    AC_HELP_STRING([--with-unicode=yes/no],
 			[set to 'yes' if you are using unicode wxWidgets library. (default=no)]),
 			[with_unicode=$withval],
-			[with_unicode='no'])
+			[with_unicode='yes'])
 
 if test "x$with_unicode" = 'xyes' ; then
   AM_PATH_WXCONFIG(2.4.2, wxWin=1,,, --unicode=yes)
