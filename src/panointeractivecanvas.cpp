@@ -104,7 +104,10 @@ void panoInteractiveCanvas::OnSize(wxSizeEvent &event)
   GetClientSize(&w,&h);
   SetCurrent();
 
-  glViewport(0,0,(GLint) w, (GLint) h);
+  // TODO: opengl needs to be initialized here.
+  if(m_initialized){
+    glViewport(0,0,(GLint) w, (GLint) h);
+  }
   
   if((double) w / (double) h > m_aspectratio)
     m_position.setFov(m_position.getFov() /w * h * m_aspectratio);
