@@ -166,6 +166,7 @@ void panoFrame::openProject(const wxString &filename)
   bool tmp;
 
   CBoundaries boundaries = m_canvas->getGivenBoundaries();
+  CBoundaries img_boundaries;
 
   wxString configname = filename;
   
@@ -177,6 +178,28 @@ void panoFrame::openProject(const wxString &filename)
   wxFileConfig config(wxEmptyString,wxEmptyString,
                        configname,wxEmptyString,wxCONFIG_USE_LOCAL_FILE);
   double angle;
+
+  img_boundaries.setTiltmin(-90.0);
+  img_boundaries.setTiltmax(90.0);
+  img_boundaries.setPanmin(-180.0);
+  img_boundaries.setPanmax(180.0);
+
+  if(config.Read(wxT("Image Minimum Tilt"),&angle))
+    if (img_boundaries.inTiltRange(angle))
+      img_boundaries.setTiltmin(angle);
+
+  if(config.Read(wxT("Image Maximum Tilt"),&angle))
+    if (img_boundaries.inTiltRange(angle))
+      img_boundaries.setTiltmax(angle);
+
+  if(config.Read(wxT("Image Minimum Pan"),&angle))
+    if (img_boundaries.inPanRange(angle))
+      img_boundaries.setPanmin(angle);
+
+  if(config.Read(wxT("Image Maximum Pan"),&angle))
+    if (img_boundaries.inPanRange(angle))
+      img_boundaries.setPanmax(angle);
+
   if(config.Read(wxT("Minimum Tilt"),&angle))
     boundaries.setTiltmin(angle);
     
@@ -221,7 +244,8 @@ void panoFrame::openProject(const wxString &filename)
     wxSetWorkingDirectory(wxPathOnly(filename));
 
   m_canvas->setGivenBoundaries(boundaries);
-  
+  m_canvas->setImageBoundaries(img_boundaries);
+
   openImage(imagename);
   
   m_canvas->setPosition(initialpos);
@@ -276,12 +300,21 @@ void panoFrame::OnSaveProject(wxCommandEvent &event)
     
     CPosition initialpos   = m_canvas->getPosition();
     CBoundaries boundaries = m_canvas->getGivenBoundaries();
+    CBoundaries img_boundaries = m_canvas->getImageBoundaries();
 
 
     char *locOld = setlocale(LC_NUMERIC, "C"); // or LC_ALL
 
     wxFileConfig config(wxEmptyString,wxEmptyString,
                          filename,wxEmptyString,wxCONFIG_USE_LOCAL_FILE);
+    if(img_boundaries.getTilts().validMin())
+      config.Write(wxT("Image Minimum Tilt"),img_boundaries.getTilts().getMin());
+    if(img_boundaries.getTilts().validMax())
+      config.Write(wxT("Image Maximum Tilt"),img_boundaries.getTilts().getMax());
+    if(img_boundaries.getPans().validMin())
+      config.Write(wxT("Image Minimum Pan"),img_boundaries.getPans().getMin());
+    if(img_boundaries.getPans().validMax())
+      config.Write(wxT("Image Maximum Pan"),img_boundaries.getPans().getMax());
     if(boundaries.getTilts().validMin())
       config.Write(wxT("Minimum Tilt"),boundaries.getTilts().getMin());
     if(boundaries.getTilts().validMax())

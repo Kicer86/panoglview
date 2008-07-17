@@ -159,8 +159,8 @@ public:
     m_fovs.setMax(fovmax);
   }
 
-  void getPanBorders (const double &panmix,  const double &panmax,  double *bordermin, double *bordermax) const;
-  void getTiltBorders(const double &tiltmix, const double &tiltmax, double *bordermin, double *bordermax) const;
+  void getPanBorders (const double &panmin,  const double &panmax,  double *bordermin, double *bordermax) const;
+  void getTiltBorders(const double &tiltmin, const double &tiltmax, double *bordermin, double *bordermax) const;
 
   
 private:

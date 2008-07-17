@@ -158,6 +158,17 @@ public:
   const CPosition &getPosition();
   void createPanorama(const wxImage &image);
   void deletePanorama();
+
+  const CBoundaries &getImageBoundaries() const
+  {
+    return m_imageboundaries;
+  }
+
+  void setImageBoundaries(const CBoundaries &newboundaries)
+  {
+    m_imageboundaries = newboundaries;
+  }
+
 protected:
   void position();
   void showPanorama();
@@ -180,9 +191,12 @@ protected:
   double   m_thetainterval;
   double   m_phistep;
   double   m_thetastep;
+  double   m_phistart;
+  double   m_thetastart;
   double   m_maxtexturex;
   double   m_maxtexturey;
-  CBoundaries m_currentboundaries;  
+  CBoundaries m_currentboundaries;
+  CBoundaries m_imageboundaries;
   bool     m_initialized;
   DECLARE_EVENT_TABLE();
 };

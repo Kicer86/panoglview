@@ -55,6 +55,7 @@ m_viewableTexPatches(0),
 m_currentboundaries(CPanRange  (-m_position.getFov()*m_aspectratio / 2.0, m_position.getFov()*m_aspectratio / 2.0),
                     CAngleRange( -m_position.getFov()              / 2.0, m_position.getFov()               / 2.0),
                     CAngleRange(                       0.0,                     180.0 )),
+m_imageboundaries(CPanRange(-180.0,180.0),CAngleRange(-90.0,90.0),CAngleRange(0.0,180.0)),
 m_divisions(128)
 {
   for(int i=0;i<16;++i)
@@ -138,18 +139,14 @@ void panoCanvas::createPanorama(const wxImage &image)
   if(m_hasimage)
     deletePanorama();
 
-  m_numOfTexPatches.x = (int) ceil( image.GetWidth() / (float) m_maxsize);
-  m_numOfTexPatches.y = (int) ceil( image.GetHeight()/ (float) m_maxsize);
-
-  if(image.GetWidth() % m_maxsize == 0)
-    m_numOfTexPatches.x++;
-
-  if(image.GetHeight() % m_maxsize == 0)
-    m_numOfTexPatches.y++;
+  m_numOfTexPatches.x = (int) ceil( image.GetWidth() / (float) (m_maxsize - 2));
+  m_numOfTexPatches.y = (int) ceil( image.GetHeight()/ (float) (m_maxsize - 2));
 
   m_pixelsPerTexture.x=image.GetWidth() /m_numOfTexPatches.x;
   m_pixelsPerTexture.y=image.GetHeight()/m_numOfTexPatches.y;
 
+  double pixelsPerTextureX_float = (float)image.GetWidth() /(float)m_numOfTexPatches.x;
+  double pixelsPerTextureY_float = (float)image.GetHeight() /(float)m_numOfTexPatches.y;
 
   m_textures           = new GLuint[m_numOfTexPatches.x*m_numOfTexPatches.y];
   m_viewableTexPatches = new bool  [m_numOfTexPatches.x*m_numOfTexPatches.y];
@@ -157,6 +154,7 @@ void panoCanvas::createPanorama(const wxImage &image)
   glGenTextures(m_numOfTexPatches.x*m_numOfTexPatches.y,m_textures);
 
   int textureindex=0;
+  bool fullpan = m_imageboundaries.getPans().getMax() - m_imageboundaries.getPans().getMin() == 360;
 
   unsigned char *tmp = new unsigned char [m_maxsize*m_maxsize];
   memset(tmp,m_maxsize*m_maxsize,0);
@@ -173,128 +171,154 @@ void panoCanvas::createPanorama(const wxImage &image)
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexImage2D   (GL_TEXTURE_2D,0,GL_RGB, m_maxsize, m_maxsize, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE,tmp);
 
-  // Main texture including right and bottom extension (if not at right and bottom edge of image)
+      // Main texture including right and bottom texture extension (if not at right and bottom edge of image)
 
       glTexSubImage2D(GL_TEXTURE_2D,0,
                   0,0,
-                  m_pixelsPerTexture.x+(x!=m_numOfTexPatches.x - 1),
-                  m_pixelsPerTexture.y+(y!=m_numOfTexPatches.y - 1),
+                  m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1),
+                  m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1),
                   GL_RGB,GL_UNSIGNED_BYTE,
                   image.GetSubImage(wxRect(
-                  x*m_pixelsPerTexture.x,y*m_pixelsPerTexture.y,
-                  m_pixelsPerTexture.x + ( x != m_numOfTexPatches.x - 1) ,
-                  m_pixelsPerTexture.y + ( y != m_numOfTexPatches.y - 1))).GetData());
+                  x * pixelsPerTextureX_float, y * pixelsPerTextureY_float,
+                  m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1),
+                  m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1))).GetData());
 
-  // Left extension: left image column at rightmost texture column
-      if(x){
-        glTexSubImage2D(GL_TEXTURE_2D,0,
-                    m_maxsize-1,0,
-                    1,m_pixelsPerTexture.y+ (y != m_numOfTexPatches.y - 1),
+      // Extend left and top border (rightmost and bottom texture lines because of texture 
+      // wrapping) with last pixel row from previous patch if not the leftmost column or topmost
+      // row patch 
+      if (x) {
+        // extend left texture column with last texture column from patch to the left
+        // leftmost patch colmn is handled separately
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    m_maxsize-1, 0,
+                    1, m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1),
                     GL_RGB,GL_UNSIGNED_BYTE,
                     image.GetSubImage(wxRect(
-                    x*m_pixelsPerTexture.x-1,y*m_pixelsPerTexture.y,
-                    1,m_pixelsPerTexture.y+ (y != m_numOfTexPatches.y - 1))).GetData());
-      } else {
-   // Left extension: If x = 0: left image column = rightmost image column at rightmost texture column
+                    (x - 1) * pixelsPerTextureX_float + m_pixelsPerTexture.x - 1,
+                    y * pixelsPerTextureY_float,
+                    1, m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1))).GetData());
+      }
 
-        glTexSubImage2D(GL_TEXTURE_2D,0,
-                    m_maxsize-1,0,
-                    1,m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1),
+      if (y) {
+        // extend top texture line with last texture line from patch above
+        // topmost patch row is handled separately
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    0, m_maxsize-1,
+                    m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1), 1,
                     GL_RGB,GL_UNSIGNED_BYTE,
                     image.GetSubImage(wxRect(
-                    image.GetWidth()-1,y*m_pixelsPerTexture.y,
-                    1,m_pixelsPerTexture.y+ (y != m_numOfTexPatches.y - 1))).GetData());
-     }
+                    x * pixelsPerTextureX_float,
+                    (y - 1) * pixelsPerTextureY_float + m_pixelsPerTexture.y - 1,
+                    m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1), 1)).GetData());
+      }
 
-   // Top extension: upper image row at bottommost texture row
-    if(y){
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-                  0,m_maxsize-1,
-                  m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1),1,
-                  GL_RGB,GL_UNSIGNED_BYTE,
-                  image.GetSubImage(wxRect(
-                  x*m_pixelsPerTexture.x,y*m_pixelsPerTexture.y-1,
-                  m_pixelsPerTexture.x +(x != m_numOfTexPatches.x - 1),1)).GetData());
-    } else {
-    // Top extension: If y = 0: upper image row (= top image row) at bottommost texture row
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-                  0,m_maxsize-1,
-                  m_pixelsPerTexture.x+ (x != m_numOfTexPatches.x - 1),1,
-                  GL_RGB,GL_UNSIGNED_BYTE,
-                  image.GetSubImage(wxRect(
-                  x*m_pixelsPerTexture.x,0,
-                  m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1),1)).GetData());
+      // wrap texture on a full panorama
+      if (x == m_numOfTexPatches.x - 1) {
+        // extend right texture column with first pixel column in image on 360 pano
+        // and right texture column with last pixel column in image partial pano
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    m_pixelsPerTexture.x, 0,
+                    1, m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1),
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    (fullpan ? 0 : image.GetWidth() - 1), y * pixelsPerTextureY_float,
+                    1, m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1))).GetData());
+        // extend top right corner on rightmost patch line
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    m_pixelsPerTexture.x, m_maxsize-1,
+                    1, 1,
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    (fullpan ? 0 : image.GetWidth() - 1),
+                    (y ? (y - 1) * pixelsPerTextureY_float + m_pixelsPerTexture.y - 1 : 0),
+                    1, 1)).GetData());
+        // extend last pixel on bottom texture line on bottom patch row
+        if (y == m_numOfTexPatches.y - 1)
+          glTexSubImage2D(GL_TEXTURE_2D, 0,
+                      m_pixelsPerTexture.x, m_pixelsPerTexture.y,
+                      1, 1,
+                      GL_RGB,GL_UNSIGNED_BYTE,
+                      image.GetSubImage(wxRect(
+                      (fullpan ? 0 : image.GetWidth() - 1), image.GetHeight() - 1,
+                      1, 1)).GetData());
+      }
+
+      if (x == 0) {
+        // extend left texture column with last pixel column in image on 360 pano
+        // and left texture column with first pixel column in image on partial pano
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    m_maxsize-1, 0,
+                    1, m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1),
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    (fullpan ? image.GetWidth() - 1 : 0), y * pixelsPerTextureY_float,
+                    1, m_pixelsPerTexture.y + (y != m_numOfTexPatches.y - 1))).GetData());
+        // Extend top left corner on left patch column
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    m_maxsize-1, m_maxsize-1,
+                    1, 1,
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    (fullpan ? image.GetWidth() - 1 : 0),
+                    (y ? (y - 1) * pixelsPerTextureY_float + m_pixelsPerTexture.y - 1 : 0),
+                    1, 1)).GetData());
+      }
+
+      // extend topmost and bottommost patch rows with topmost and bottommost texture pixel
+      if (y == m_numOfTexPatches.y - 1) {
+        // extend bottom texture line on bottom patch row
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    0, m_pixelsPerTexture.y,
+                    m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1), 1,
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    x * pixelsPerTextureX_float, image.GetHeight() - 1,
+                    m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1), 1)).GetData());
+        // extend bottom left corner on bottom patch line
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    m_maxsize-1, m_pixelsPerTexture.y,
+                    1, 1,
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    (x ? ( x - 1) * pixelsPerTextureX_float + m_pixelsPerTexture.x - 1 : (fullpan ? image.GetWidth() - 1 : 0)),
+                    image.GetHeight() - 1,
+                    1, 1)).GetData());
+      }
+
+      if (y == 0) {
+        // extend top texture line on top patch row
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                    0, m_maxsize-1,
+                    m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1), 1,
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    x * pixelsPerTextureX_float, 0,
+                    m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1), 1)).GetData());
+        // Extend top left corner on top patch row.
+        if (x)
+          glTexSubImage2D(GL_TEXTURE_2D, 0,
+                      m_maxsize-1, m_maxsize-1,
+                      1, 1,
+                      GL_RGB,GL_UNSIGNED_BYTE,
+                      image.GetSubImage(wxRect(
+                      (x - 1) * pixelsPerTextureX_float + m_pixelsPerTexture.x - 1, 0,
+                      1, 1)).GetData());
+      }
+
+      if (x && y) {
+        // extend top left corner on all patches except top row and left column
+        glTexSubImage2D(GL_TEXTURE_2D,0,
+                    m_maxsize-1,m_maxsize-1,
+                    1,1,
+                    GL_RGB,GL_UNSIGNED_BYTE,
+                    image.GetSubImage(wxRect(
+                    (x - 1) * pixelsPerTextureX_float + m_pixelsPerTexture.x - 1,
+                    (y - 1) * pixelsPerTextureY_float + m_pixelsPerTexture.y - 1,
+                    1,1)).GetData());
+      }
+
     }
 
-  // Topleft extension: upper left pixel at bottommost right texture
-    if(x && y){
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-                  m_maxsize-1,m_maxsize-1,
-                  1,1,
-                  GL_RGB,GL_UNSIGNED_BYTE,
-                  image.GetSubImage(wxRect(
-                  x*m_pixelsPerTexture.x-1,y*m_pixelsPerTexture.y-1,
-                  1,1)).GetData());
-
-    } else {
-      //Topleft extension: Correct upper left pixel for non-top y, top one for y=0 else
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-                  m_maxsize-1,m_maxsize-1,
-                  1,1,
-                  GL_RGB,GL_UNSIGNED_BYTE,
-                  image.GetSubImage(wxRect(
-                  (x ? x*m_pixelsPerTexture.x-1 : image.GetWidth()-1),(y ? y*m_pixelsPerTexture.y - 1 : 0),
-                  1,1)).GetData());
-
-    }
-
-  // If at right of bottom edge of image, extend with wraparound texture
-    if( x == m_numOfTexPatches.x - 1){
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-                  m_pixelsPerTexture.x,0,
-                  1,m_pixelsPerTexture.y + ( y != m_numOfTexPatches.y - 1),
-                  GL_RGB,GL_UNSIGNED_BYTE,
-                  image.GetSubImage(wxRect(
-                  0,y*m_pixelsPerTexture.y,
-                  1,m_pixelsPerTexture.y + ( y != m_numOfTexPatches.y - 1))).GetData());
-    }
-
-    if( y == m_numOfTexPatches.y - 1){
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-                  0,m_pixelsPerTexture.y,
-                  m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1),1,
-                  GL_RGB,GL_UNSIGNED_BYTE,
-                  image.GetSubImage(wxRect(
-                  0,image.GetHeight()-1,
-                  m_pixelsPerTexture.x + (x != m_numOfTexPatches.x - 1),1)).GetData());
-    }
-
-    // Bottom right corner is missing
-    if ( y == m_numOfTexPatches.y -1 && x == m_numOfTexPatches.x - 1){
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-		      m_pixelsPerTexture.x,m_pixelsPerTexture.y,
-		      1,1,
-		      GL_RGB,GL_UNSIGNED_BYTE,
-		      image.GetSubImage(wxRect(0,image.GetHeight()-1,1,1)).GetData());
-    }
-
-    // Top right corner is missing:
-    if ( !y && x == m_numOfTexPatches.x -1)
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-		      m_pixelsPerTexture.x,m_maxsize-1,
-		      1,1,
-		      GL_RGB,GL_UNSIGNED_BYTE,
-		      image.GetSubImage(wxRect(0,0,1,1)).GetData());
-
-    // Bottom Left Corner is missing:
-    if ( !x && y == m_numOfTexPatches.y -1 )
-      glTexSubImage2D(GL_TEXTURE_2D,0,
-		      m_maxsize-1,m_pixelsPerTexture.y,
-		      1,1,
-		      GL_RGB,GL_UNSIGNED_BYTE,
-		      image.GetSubImage(wxRect(image.GetWidth()-1,image.GetHeight()-1,1,1)).GetData());
-
-  }
   delete [] tmp;
 
   // Number of angle steps per texture patch
@@ -302,12 +326,16 @@ void panoCanvas::createPanorama(const wxImage &image)
   m_stepsPerTexture.y = (int) ceil( m_divisions / (float) (2 * m_numOfTexPatches.y) );
 
   // Angular interval for each patch
-  m_phiinterval   = 2 * M_PI/m_numOfTexPatches.x;
-  m_thetainterval =     M_PI/m_numOfTexPatches.y;
+  m_phiinterval = RAD(m_imageboundaries.getPans().getMax() - m_imageboundaries.getPans().getMin()) / m_numOfTexPatches.x;
+  m_thetainterval = RAD(m_imageboundaries.getTilts().getMax() - m_imageboundaries.getTilts().getMin()) / m_numOfTexPatches.y;
 
   // Angular increment for eatch patch step
   m_phistep   = m_phiinterval  / m_stepsPerTexture.x;
   m_thetastep = m_thetainterval/ m_stepsPerTexture.y;
+
+  // set image boundaries
+  m_thetastart = RAD(m_imageboundaries.getTilts().getMin()) + M_PI_2;
+  m_phistart   = RAD(m_imageboundaries.getPans().getMin()) + M_PI;
 
   // Image fill level for each texture patch
   m_maxtexturex = (double) m_pixelsPerTexture.x / (double) m_maxsize;
@@ -396,37 +424,58 @@ void panoCanvas::showPanorama()
   m_currentboundaries = calculateViewBoundaries();
 
   // Set viewable texpatches
-
   memset(m_viewableTexPatches,0,m_numOfTexPatches.x*m_numOfTexPatches.y*sizeof(bool));
 
   // Calculate indices based on current angular field of view
-  int panminindex = (int) (RAD(m_currentboundaries.getPans().getMin())/m_phiinterval + m_numOfTexPatches.x) % m_numOfTexPatches.x;
-  int panmaxindex = (int) (RAD(m_currentboundaries.getPans().getMax())/m_phiinterval + m_numOfTexPatches.x) % m_numOfTexPatches.x;
+  double panBoundaryMax = m_currentboundaries.getPans().getMax();
+  double panBoundaryMin = m_currentboundaries.getPans().getMin();
+  double imgBoundaryMax = m_imageboundaries.getPans().getMax() + 180;
+  double imgBoundaryMin = m_imageboundaries.getPans().getMin() + 180;
 
-  int thetaminindex = (int) (RAD(m_currentboundaries.getTilts().getMin()) / m_thetainterval);
-  int thetamaxindex = (int) (RAD(m_currentboundaries.getTilts().getMax()) / m_thetainterval);
+  // Correct overflow
+  if (panBoundaryMax < panBoundaryMin) {
+    if ((imgBoundaryMin < panBoundaryMax) && (imgBoundaryMin < panBoundaryMin))
+      imgBoundaryMin += 360;
+    if ((imgBoundaryMax < panBoundaryMax) && (imgBoundaryMax < panBoundaryMin))
+      imgBoundaryMax += 360;
+    panBoundaryMax += 360;
+  }
 
-  if(thetamaxindex < thetaminindex)
-    thetamaxindex = thetamaxindex + m_numOfTexPatches.y;
+  int panminindex = floor(RAD(panBoundaryMin - imgBoundaryMin) / m_phiinterval);
+  if (panminindex < 0)
+    panminindex += floor(2 * M_PI / m_phiinterval);
 
-  if(panmaxindex < panminindex)
-    panmaxindex = panmaxindex + m_numOfTexPatches.x;
+  int panmaxindex = floor(RAD(panBoundaryMax - imgBoundaryMin) / m_phiinterval);
+  if (panmaxindex < 0)
+    panmaxindex += floor(2 * M_PI / m_phiinterval);
+
+  int thetaminindex = floor(RAD(m_currentboundaries.getTilts().getMin() - (m_imageboundaries.getTilts().getMin() + 90)) / m_thetainterval);
+
+  int thetamaxindex = floor(RAD(m_currentboundaries.getTilts().getMax() - (m_imageboundaries.getTilts().getMin() + 90)) / m_thetainterval);
+
+  if (thetaminindex < 0)
+    thetaminindex = 0;
+
+  if (thetamaxindex >= m_numOfTexPatches.y)
+    thetamaxindex = m_numOfTexPatches.y - 1;
 
   for(int k=thetaminindex;  k <= thetamaxindex; k++)
-    for(int l=panminindex; l <= panmaxindex; l++)
-      m_viewableTexPatches[( k % m_numOfTexPatches.y) * m_numOfTexPatches.x + (l % m_numOfTexPatches.x)] = 1;
+    for(int l=0; l < m_numOfTexPatches.x; l++)
+      if (((l >= panminindex) && (l <= panmaxindex)) ||
+          ((panmaxindex < panminindex) && ((l >= panminindex) || (l <= panmaxindex))))
+        m_viewableTexPatches[k * m_numOfTexPatches.x + l] = 1;
 
   textureindex=0;
 
-  for(int y=0;y<m_numOfTexPatches.y;y++){
-    for(int x=0;x<m_numOfTexPatches.x;x++,textureindex++){
-      if ( m_viewableTexPatches[textureindex]){
+  for(int y=0;y<m_numOfTexPatches.y;y+=1){
+    for(int x=0;x<m_numOfTexPatches.x;x+=1,textureindex+=1){
+      if (m_viewableTexPatches[textureindex]){
         glBindTexture  (GL_TEXTURE_2D,  m_textures[textureindex]);
-        theta = y * m_thetainterval - M_PI_2;
+        theta = y * m_thetainterval - M_PI_2 + m_thetastart;
         glBegin(GL_QUAD_STRIP);
         for(int k=0;k<m_stepsPerTexture.y;k++){
 
-          phi = (x+1) * m_phiinterval - M_PI_2;
+          phi = (x+1) * m_phiinterval - M_PI_2 + m_phistart;
           double nexttheta =  theta + m_thetastep;
 
           for(int l=0; l<=m_stepsPerTexture.x;l++){

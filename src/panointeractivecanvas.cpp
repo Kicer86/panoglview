@@ -553,7 +553,7 @@ void panoInteractiveCanvas::showAllBoundaries()
   if(m_givenboundaries.getPans().validMin())
     showPanTiltLine(m_givenboundaries.getPans().getMin() - 180.0, 1.0,0.0,0.0,true);
 
-  if(m_givenboundaries.getPans().validMin())
+  if(m_givenboundaries.getPans().validMax())
     showPanTiltLine(m_givenboundaries.getPans().getMax() - 180.0, 0.0,1.0,0.0,true);
 
   if(m_givenboundaries.getTilts().validMin())
