@@ -136,7 +136,7 @@ PCX files (*.pcx)|*.pcx|\
 PNM files (*.pnm)|*.pnm|\
 TIFF files (*.tif)|*.tif|\
 XPM files (*.xpm)|*.xpm|\
-All files (*.*)|*.*"),wxOPEN|wxFILE_MUST_EXIST);
+All files (*.*)|*.*"),wxFD_OPEN|wxFD_FILE_MUST_EXIST);
   if (imagename !=wxT(""))
     openImage(imagename);
 }
@@ -153,7 +153,7 @@ void panoFrame::OnFullScreen(wxCommandEvent &event)
 
 void panoFrame::OnOpenProject(wxCommandEvent &event)
 {
-  wxString filename = wxFileSelector(_("Open Project"),wxEmptyString,wxEmptyString,wxT("paf"),_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxOPEN|wxFILE_MUST_EXIST);
+  wxString filename = wxFileSelector(_("Open Project"),wxEmptyString,wxEmptyString,wxT("paf"),_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxFD_OPEN|wxFD_FILE_MUST_EXIST);
   if (filename !=wxT("")){
     openProject(filename);
   }
@@ -292,7 +292,7 @@ void panoFrame::openArgumentFile(const wxString &filename)
 
 void panoFrame::OnSaveProject(wxCommandEvent &event)
 {
-  wxString filename = wxFileSelector(_("Save Project"),wxEmptyString,wxEmptyString,wxT("paf"),_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxOVERWRITE_PROMPT|wxSAVE);
+  wxString filename = wxFileSelector(_("Save Project"),wxEmptyString,wxEmptyString,wxT("paf"),_("Panorama files (*.paf)|*.paf|All files (*.*)|*.*"),wxFD_OVERWRITE_PROMPT|wxFD_SAVE);
   if (filename != wxT("")){
     if (wxFileExists(filename))
       wxRemoveFile(filename);
