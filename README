@@ -1,0 +1,5 @@
+
+This project is a fork of PanoGLView (visit https://wiki.panotools.org/Panoglview) switched to CMake.
+
+PanoGLView is an OpenGL hardware accelerated immersive viewer for equirectangular images,
+originally created by Fabian Wenzel and currently hosted on the hugin sourceforge site.
